@@ -17,7 +17,7 @@ rooms.lobby = new Room();
 rooms.lobby.setTopic("Welcome to the lobby!");
 
 io.on('connection', function (socket) {
-	console.log(socket);
+	//console.log(socket);
 	//This gets performed when a user joins the server.
 	socket.on('adduser', function(username, fn){
 
@@ -129,20 +129,28 @@ io.on('connection', function (socket) {
 		if(users[msgObj.nick] !== undefined) {
 			var messageObj = {
 				nick: socket.username,
+				target: msgObj.nick,
 				timestamp : new Date(),
 				message: msgObj.message
 			};
 			//Send the message only to this user.
-			users[msgObj.nick].socket.emit('recv_privatemsg', messageObj);
+			//users[msgObj.nick].socket.emit('recv_privatemsg', messageObj);
+			for(var room in rooms){
+				rooms[room].addMessage(messageObj);
+			}
+			io.sockets.emit('recv_privatemsg',rooms[msgObj.roomName].messageHistory);
 			//Callback recieves true.
 			fn(true);
 		}
-		fn(false);
+		else {
+			fn(false);
+		}
 	});
 
 	//When a user leaves a room this gets performed.
 	socket.on('partroom', function (room) {
 		//remove the user from the room roster and room op roster.
+		console.log(room, socket.username);
 		delete rooms[room].users[socket.username];
 		delete rooms[room].ops[socket.username];
 		//Remove the channel from the user object in the global user roster.
@@ -177,8 +185,10 @@ io.on('connection', function (socket) {
 
 		if(rooms[kickObj.room].ops[socket.username] !== undefined) {
 			//Remove the user from the room roster.
+			console.log("user" + kickObj.user + " is being kicked");
 			delete rooms[kickObj.room].users[kickObj.user];
 			//Remove the user from the ops roster.
+			console.log("user" + kickObj.user + " is being deoped");
 			delete rooms[kickObj.room].ops[kickObj.user];
 			//Broadcast to the room who got kicked.
 			io.sockets.emit('kicked', kickObj.room, kickObj.user, socket.username);
@@ -242,7 +252,9 @@ io.on('connection', function (socket) {
 			io.sockets.emit('updateusers', banObj.room, rooms[banObj.room].users, rooms[banObj.room].ops);
 			fn(true);
 		}
-		fn(false);
+		else {
+			fn(false);
+		}
 	});
 
 	//Handles unbanning the user.
